@@ -1,0 +1,7 @@
+# Supabase CLI config. Local identifier only — the remote project is selected via
+# `supabase link --project-ref xzmegdibmdufgfldsbms`. No secrets belong in this file.
+project_id = "risksafety"
+
+[db]
+# Match the Supabase Postgres major version.
+major_version = 16

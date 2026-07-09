@@ -15,12 +15,19 @@ next phases. Update it as blockers clear._
 
 ## BLOCKERS — need owner action before the cloud/schema phases
 
-### 1. Supabase access is not available in this environment
-No Supabase MCP server, no Supabase CLI, no access token. Cannot verify the
-**Work4Vince org**, create a project, or run `supabase db push`. Phase 0's cloud
-verification and Phases 1–6's `db reset`/`db push` are blocked.
-**Need:** a Supabase access token scoped to Work4Vince (via env / MCP), or run the
-Supabase steps yourself locally.
+### 1. Supabase credentials received, but this sandbox cannot reach Supabase
+Project **RiskSafety** (ref `xzmegdibmdufgfldsbms`) credentials were provided and
+stored in git-ignored `.env.local`. However, the sandbox **network policy denies
+outbound access to Supabase**: the egress gateway returns `403` on HTTPS to
+`*.supabase.co`, IPv6 is unsupported, and Postgres ports 5432/6543 time out. So
+migrations cannot be applied from here.
+- ✅ The golden `0001_init.sql` was **validated locally** against Postgres 16 —
+  applies cleanly (9 enums, 4 tables, RLS on all, append-only audit trigger fires).
+- **To apply:** run the runbook in `docs/SUPABASE_SETUP.md` from a networked machine
+  or CI (`supabase link` + `db push`, or direct `psql`). Optionally, change the
+  environment's network policy to allow `*.supabase.co`/`*.supabase.com`.
+- **Rotate** the DB password (shared in plaintext) after setup; provide a
+  `service_role` key if server-side workers need it.
 
 ### 2. Two required spec documents were never provided
 `CLAUDE.md` and the build prompt both reference these as read-before-you-build:
