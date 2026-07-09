@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@forrest/shared/constants": ["packages/shared/src/constants.ts"],
+      "@forrest/shared": ["packages/shared/src/index.ts"],
+      "@forrest/scoring": ["packages/scoring/src/index.ts"]
+    }
+  }
+}

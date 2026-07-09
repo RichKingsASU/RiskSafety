@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/scoring" },
+    { "path": "./packages/fmcsa-adapter" }
+  ]
+}

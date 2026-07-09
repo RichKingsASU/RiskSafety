@@ -1,0 +1,16 @@
+# CODEOWNERS — review routing. Replace placeholders with real GitHub handles/teams.
+# The scoring model and governance guardrails are protected surfaces: changes here
+# must be reviewed (CLAUDE.md non-negotiable rules).
+
+# Canonical scoring model — HIGH = GOOD. Guard against score inversion.
+/packages/scoring/        @RichKingsASU
+/packages/shared/src/constants.ts  @RichKingsASU
+
+# Database schema, RLS, audit trigger (append-only).
+/supabase/                @RichKingsASU
+
+# FMCSA adapter — the single mapping site.
+/packages/fmcsa-adapter/  @RichKingsASU
+
+# Project memory — architectural rules.
+/CLAUDE.md                @RichKingsASU
