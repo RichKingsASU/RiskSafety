@@ -14,8 +14,26 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { computeScore } from '@forrest/scoring';
-import { buildDataset, CARRIER_POPULATION, NAMED_COUNT } from './dataset.mjs';
+
+// RUNTIME NODE GUARD — fail loudly on the machine actually running this build.
+// seed:build imports the canonical TS engine (@forrest/scoring) directly and
+// relies on Node 22's native TS type-stripping. .nvmrc and package "engines"
+// are soft guarantees (.nvmrc only binds runners that consult it; engines is
+// advisory without --engine-strict), so assert the real runtime major here.
+const REQUIRED_NODE_MAJOR = 22;
+const runningNodeMajor = Number(process.versions.node.split('.')[0]);
+if (!(runningNodeMajor >= REQUIRED_NODE_MAJOR)) {
+  console.error(
+    `seed:build requires Node >= ${REQUIRED_NODE_MAJOR} (running ${process.versions.node}).\n` +
+      `This step imports the canonical TypeScript scoring engine directly and depends\n` +
+      `on Node ${REQUIRED_NODE_MAJOR}+ native TS type-stripping. Use the pinned version\n` +
+      `(.nvmrc = ${REQUIRED_NODE_MAJOR}; e.g. \`nvm use\`) and re-run \`npm run seed:build\`.`
+  );
+  process.exit(1);
+}
+
+const { computeScore } = await import('@forrest/scoring');
+const { buildDataset, CARRIER_POPULATION, NAMED_COUNT } = await import('./dataset.mjs');
 
 const here = dirname(fileURLToPath(import.meta.url));
 const q = (s) => (s === null || s === undefined ? 'null' : `'${String(s).replace(/'/g, "''")}'`);
