@@ -1,14 +1,16 @@
 // packages/preview/src/preview.ts
-// What-if band-volume preview. PURE + READ-ONLY: it scores the fixture
-// population at candidate green/yellow cutoffs and counts the resulting bands.
-// It writes NOTHING to config — the canonical live lines are DISPATCH_DEFAULTS
-// and are never touched here (CLAUDE.md #4 / Open Question Q1). This is exactly
-// the "name a pair of cutoffs, see the queues" capability the Phase 1 memo
-// promises Matt, so the bands can be chosen by looking at real volumes.
+// What-if band-volume preview. PURE + READ-ONLY: it reads the canonical numeric
+// score from the engine and applies candidate green/yellow cutoffs in ITS OWN
+// code (see ./band.ts), then counts the resulting bands. It writes NOTHING to
+// config — the canonical live lines are DISPATCH_DEFAULTS and are never touched
+// here (CLAUDE.md #4 / Open Question Q1). This is exactly the "name a pair of
+// cutoffs, see the queues" capability the Phase 1 memo promises Matt, so the
+// bands can be chosen by looking at real volumes.
 
 import { computeScore } from '@forrest/scoring';
 import type { DispatchBand, QualityBand, DispatchCutoffs } from '@forrest/shared/constants';
 import type { FixtureCarrier } from './fixture-population.ts';
+import { bandFor } from './band.ts';
 
 const DISPATCH_BANDS: DispatchBand[] = ['green', 'yellow', 'orange', 'red'];
 const QUALITY_BANDS: QualityBand[] = ['excellent', 'good', 'fair', 'poor'];
@@ -41,10 +43,13 @@ const zero = <K extends string>(keys: K[]): Record<K, number> =>
   keys.reduce((acc, k) => ((acc[k] = 0), acc), {} as Record<K, number>);
 
 /**
- * Score the whole population at a candidate pair of cutoffs and tally the bands.
- * Pure: no I/O, no mutation of inputs or config. Runs the SAME canonical engine
- * the live product uses (via the cutoffs override), so previewed volumes match
- * what production would show if these lines were ratified.
+ * Score the whole population and tally the bands AT a candidate pair of cutoffs.
+ * Pure: no I/O, no mutation of inputs or config. The numeric score and its
+ * cutoff-independent facts (hard gate, flags) come from the SINGLE canonical
+ * engine (`computeScore`, one behavior); the candidate green/yellow lines are
+ * applied here via `bandFor`, never by reshaping the engine call. So previewed
+ * volumes match what production would show if these lines were ratified — but the
+ * engine is never asked to band on anything but its live DISPATCH_DEFAULTS.
  */
 export function previewBands(
   population: FixtureCarrier[],
@@ -56,8 +61,13 @@ export function previewBands(
   let routed_to_review = 0;
 
   for (const c of population) {
-    const r = computeScore(c.inputs, c.gates, cutoffs);
-    dispatch[r.dispatch_band]++;
+    const r = computeScore(c.inputs, c.gates); // canonical engine, one behavior
+    const dispatch_band = bandFor(r.overall_score, cutoffs, {
+      hard_gate_triggered: r.hard_gate_triggered,
+      has_open_material_flag: c.gates.has_open_material_flag,
+      is_thin_file: c.gates.is_thin_file,
+    });
+    dispatch[dispatch_band]++;
     quality[r.quality_band]++;
     if (r.hard_gate_triggered) hard_gated++;
     if (r.routed_to_review) routed_to_review++;

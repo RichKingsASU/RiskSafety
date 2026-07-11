@@ -3,4 +3,5 @@
 // Read-only: previews candidate green/yellow cutoffs against a deterministic
 // fixture population. Writes nothing to config (Open Question Q1 stays open).
 export * from './fixture-population.ts';
+export * from './band.ts';
 export * from './preview.ts';
