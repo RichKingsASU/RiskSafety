@@ -17,6 +17,13 @@ jobs:
       - run: npm ci || npm install
       - name: Typecheck
         run: npm run typecheck
+      - name: Seed build is deterministic on Node 22 (native TS type-stripping)
+        # seed:build imports the canonical TS engine directly (@forrest/scoring),
+        # so it depends on Node 22's native type-stripping. Run it here — on the
+        # pinned 22 — and fail if it doesn't rebuild byte-for-byte identical files.
+        run: |
+          npm run seed:build
+          git diff --exit-code -- supabase/seed/*.generated.sql supabase/seed/dataset.generated.json
       - name: Unit + scoring golden tests
         run: npm run test
 
