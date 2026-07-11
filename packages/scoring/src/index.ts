@@ -10,7 +10,6 @@ import {
   DISPATCH_DEFAULTS,
   type QualityBand,
   type DispatchBand,
-  type DispatchCutoffs,
   type AuthorityStatus,
   type SafetyRating,
 } from '@forrest/shared/constants';
@@ -116,17 +115,13 @@ function hardGateTriggered(gates: GateInputs): boolean {
  * Dispatch eligibility (green|yellow|orange|red) is derived from the quality band
  * PLUS hard gates and open flags — it is NOT the quality band itself (CLAUDE.md #2).
  *
- * `cutoffs` defaults to the canonical `DISPATCH_DEFAULTS` (the live config, pending
- * Q1 sign-off). It exists only so a what-if PREVIEW can score the population at
- * candidate green/yellow lines without mutating config. The banding rules — hard-gate
- * override, open-flag downgrade, thin-file floor — are unchanged and NOT duplicated
- * anywhere; there is still exactly one implementation.
+ * ONE behavior: banding is against the live `DISPATCH_DEFAULTS` only. There is no
+ * cutoff parameter — no caller can make the engine band on other lines. What-if
+ * previews live in `@forrest/preview`, which reads THIS numeric score and applies
+ * candidate cutoffs in its own code (see ADR-0001). This single-code-path contract
+ * is what the directionality / anti-drift guardrails depend on.
  */
-export function computeScore(
-  inputs: ScoreInputs,
-  gates: GateInputs,
-  cutoffs: DispatchCutoffs = DISPATCH_DEFAULTS,
-): ScoreResult {
+export function computeScore(inputs: ScoreInputs, gates: GateInputs): ScoreResult {
   const base = computeOverallScore(inputs);
   const overall_score = base.overall;
   const quality_band = toQualityBand(overall_score);
@@ -141,9 +136,9 @@ export function computeScore(
   } else {
     // Base eligibility from the score (defaults pending Q1 sign-off).
     let band: DispatchBand =
-      overall_score >= cutoffs.green_min
+      overall_score >= DISPATCH_DEFAULTS.green_min
         ? 'green'
-        : overall_score >= cutoffs.yellow_min
+        : overall_score >= DISPATCH_DEFAULTS.yellow_min
           ? 'yellow'
           : 'orange';
 

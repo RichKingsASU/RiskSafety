@@ -25,15 +25,44 @@ Add a **read-only what-if preview** (`packages/preview`) that scores a
 deterministic fixture population at *candidate* green/yellow cutoffs and reports
 the resulting band volumes and triage-queue size. It:
 
-- reuses the **canonical** engine (`computeScore`) — no second scoring version;
-  cutoffs are passed as an optional override argument that defaults to the live
-  `DISPATCH_DEFAULTS`, so the config remains the single source of truth;
+- reuses the **canonical** engine (`computeScore`) for the numeric score — no
+  second scoring version; the score formula lives in `packages/scoring` alone;
+- applies the *candidate* green/yellow lines in the preview's **own** banding
+  helper (`packages/preview/src/band.ts`, `bandFor`), reading the engine's numeric
+  score — it never asks the engine to band on other lines;
 - **writes nothing** to config — every row is a what-if; Q1 stays open;
 - runs against the canonical **1,136**-carrier count via a seeded, reproducible
   fixture generator (invented carriers only — no real data, no invented
   thresholds/weights/table-dictionary values);
 - ships as a CLI (`npm run preview -- --green 75 --yellow 55`) so Matt can name a
   pair of cutoffs and see the dispatch bands + Danica's review queue immediately.
+
+## Preview fence (the four invariants that keep this safe)
+
+1. **Candidate cutoffs stay in the preview's own state.** The engine
+   (`computeScore`) has exactly ONE behavior — it bands on `DISPATCH_DEFAULTS`
+   only and takes no cutoff parameter. Candidate lines exist only inside
+   `@forrest/preview` (`bandFor`), so no caller can make the single canonical
+   scoring path band on arbitrary lines. (This invariant was tightened after the
+   initial version, which had passed cutoffs into `computeScore`; that widened
+   the engine's contract and is now reverted — see Amendment below.)
+2. **Provisional labeling.** Every previewed pair is shown as a what-if; the CLI
+   header states "WHAT-IF PREVIEW ONLY, nothing written to config."
+3. **Read-only module.** No writes, no persistence, no I/O beyond printing.
+4. **Nothing ratified.** `DISPATCH_DEFAULTS` is never mutated and no previewed
+   pair is ever persisted as the live configuration; Q1 stays Matt's to decide.
+
+## Amendment (post PR #5 / squash `9537167`)
+
+The first cut of the preview reused the engine by giving `computeScore` an optional
+`cutoffs` argument. That let any caller band on arbitrary lines through the single
+canonical path, widening the engine's contract and undercutting the "one engine,
+one behavior" invariant the directionality / anti-drift guardrails (PRs #2–#4)
+depend on. **Resolution:** `computeScore` is restored to its two-argument single
+behavior (bands on `DISPATCH_DEFAULTS` only), and candidate-cutoff banding moved
+into `bandFor` in the preview package. Only the cutoff *comparison* (plus the same
+hard-gate / open-flag / thin-file adjustments) moved — the scoring *formula* stays
+in `packages/scoring`. Previewed volumes are byte-for-byte unchanged.
 
 ## Consequences
 

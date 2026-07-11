@@ -11,9 +11,13 @@ volumes** instead of in the abstract.
 ## Guarantees
 
 - **Writes nothing to config.** The live `DISPATCH_DEFAULTS` (pending Q1 sign-off)
-  are never mutated — cutoffs are passed as an override. Every result is a what-if.
-- **One scoring engine.** Uses the canonical `computeScore` from `@forrest/scoring`;
-  no second scoring implementation.
+  are never mutated. Candidate cutoffs live only in this package. Every result is
+  a what-if.
+- **One scoring engine, one behavior.** The score comes from the canonical
+  `computeScore` in `@forrest/scoring`, which bands on `DISPATCH_DEFAULTS` only and
+  takes no cutoff parameter. Candidate green/yellow lines are applied here, in
+  `bandFor` (`src/band.ts`), from the engine's numeric score — the scoring formula
+  is never duplicated; only the cutoff comparison lives in this package.
 - **No invented values.** The fixture carriers are invented *test data* (seeded,
   reproducible); no thresholds, weights, or table-dictionary values are invented.
 - **Deterministic.** Same seed → identical population and identical preview.

@@ -111,3 +111,37 @@ describe('open material flag gates green', () => {
     expect(r.dispatch_band).toBe('yellow');
   });
 });
+
+describe('single behavior — no cutoff parameter can select another banding', () => {
+  // A mid score that is GREEN at the live defaults (green_min 60) but would be
+  // ORANGE at tighter lines. If any third "cutoffs" argument still influenced the
+  // engine, the extra arg below would change the band. It must be inert: the
+  // engine has exactly one banding path (DISPATCH_DEFAULTS), and what-if cutoffs
+  // live in @forrest/preview, not here.
+  const midInputs = {
+    fleet_size_score: 65,
+    vehicle_oos_score: 65,
+    driver_oos_score: 65,
+    accident_rate_score: 65,
+    confidence_modifier: 1,
+  };
+
+  it('bands a mid score green at the live defaults', () => {
+    const r = computeScore(midInputs, cleanGates);
+    expect(r.overall_score).toBe(65);
+    expect(r.dispatch_band).toBe('green');
+  });
+
+  it('ignores any extra (cutoffs-shaped) argument — the extra arg is inert', () => {
+    const canonical = computeScore(midInputs, cleanGates);
+    // Deliberately over-call with a tight candidate pair; a single-behavior engine
+    // ignores it entirely.
+    const overCalled = (computeScore as (...a: unknown[]) => typeof canonical)(
+      midInputs,
+      cleanGates,
+      { green_min: 95, yellow_min: 90 },
+    );
+    expect(overCalled.dispatch_band).toBe(canonical.dispatch_band); // still 'green'
+    expect(overCalled).toEqual(canonical);
+  });
+});
