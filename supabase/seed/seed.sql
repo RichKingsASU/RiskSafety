@@ -43,88 +43,19 @@ insert into carriers (id, dot_number, mc_number, legal_name, dba_name, authority
   ('c1000000-0000-0000-0000-000000000004','1000004','MC100004','Cutrate Carriers LLC','Cutrate','active','2021-02-10','satisfactory',12,'900 Backlot Rd, Newark, NJ 07102','973-555-0104','na',false,'orange','restricted')
 on conflict (dot_number) do nothing;
 
-insert into risk_scores (carrier_id, fleet_size_score, vehicle_oos_score, driver_oos_score, accident_rate_score, overall_score, quality_band, confidence_modifier, carrierassure_grade, divergence_flag, dispatch_band) values
-  -- C1: 0.15*80 + 0.20*88 + 0.25*90 + 0.40*85 = 86 -> excellent / green
-  ('c1000000-0000-0000-0000-000000000001',80,88,90,85,86,'excellent',1.0,'A',false,'green'),
-  -- C2: score is fine (78 good) but authority revoked forces RED (hard gate).
-  ('c1000000-0000-0000-0000-000000000002',70,80,78,80,78,'good',1.0,'B',false,'red'),
-  -- C3: thin file (1 unit) — low confidence blends toward neutral (~52), review.
-  ('c1000000-0000-0000-0000-000000000003',45,50,52,55,52,'fair',0.2,'C',false,'yellow'),
-  -- C4: genuinely poor (28) -> orange.
-  ('c1000000-0000-0000-0000-000000000004',20,30,25,32,28,'poor',1.0,'D',true,'orange')
-on conflict do nothing;
+-- ---------------------------------------------------------------------
+-- Generated carrier population + ALL risk scores — engine-emitted LITERALS.
+-- The FMCSA weighted-sum lives ONLY in packages/scoring; it is NEVER re-expressed
+-- in SQL. The two files below are produced by `npm run seed:build`, which imports
+-- the canonical engine and emits literal results (no arithmetic, no SQL banding).
+-- An anti-drift test (tests/unit/seed-scoring.test.ts) fails CI if these literals
+-- ever disagree with the engine. `\ir` = include relative to this seed file.
+-- ---------------------------------------------------------------------
+-- 1,132 generated carriers (population total = 1,136 with the 4 named above).
+\ir carriers.generated.sql
 
--- ---------------------------------------------------------------------
--- 1,132 generated carriers (total population = 1,136). Deterministic scores.
--- Bulk are active/satisfactory (no hard gate) so dispatch tracks the score;
--- a sparse deterministic subset exercises the hard gates and thin-file guard.
--- ---------------------------------------------------------------------
-with gen as (
-  select
-    i,
-    gen_random_uuid() as cid,
-    (abs(hashtext('carrier#' || i)) % 100)                                    as s,
-    -- deterministic sub-scores (each 0-100)
-    greatest(0, least(100, 40 + (abs(hashtext('f' || i)) % 61)))              as fleet,
-    greatest(0, least(100, 45 + (abs(hashtext('v' || i)) % 56)))             as veh,
-    greatest(0, least(100, 45 + (abs(hashtext('d' || i)) % 56)))             as drv,
-    greatest(0, least(100, 30 + (abs(hashtext('a' || i)) % 71)))             as acc
-  from generate_series(1, 1132) as i
-),
-scored as (
-  select
-    i, cid, s, fleet, veh, drv, acc,
-    round(0.15*fleet + 0.20*veh + 0.25*drv + 0.40*acc)::int                   as overall,
-    -- hard-gate exercise: ~1% revoked, ~1% conditional (deterministic)
-    (i % 97  = 0)                                                             as gate_revoked,
-    (i % 89  = 0)                                                             as gate_conditional,
-    (i % 71  = 0)                                                             as thin_file
-  from gen
-),
-banded as (
-  select
-    i, cid, fleet, veh, drv, acc, overall, gate_revoked, gate_conditional, thin_file,
-    case when overall >= 80 then 'excellent'
-         when overall >= 60 then 'good'
-         when overall >= 40 then 'fair'
-         else 'poor' end::quality_band                                        as qband,
-    case
-      when gate_revoked or gate_conditional then 'red'
-      when overall >= 60 then 'green'
-      when overall >= 40 then 'yellow'
-      else 'orange' end::dispatch_band                                        as dband
-  from scored
-),
-ins_carriers as (
-  insert into carriers (id, dot_number, mc_number, legal_name, authority_status, authority_grant_date, safety_rating, power_unit_count, physical_address, ab5_status, identity_verified, dispatch_band, status)
-  select
-    cid,
-    lpad((2000000 + i)::text, 7, '0'),
-    'MC' || lpad((2000000 + i)::text, 7, '0'),
-    'Carrier ' || i || ' LLC',
-    case when gate_revoked then 'revoked' else 'active' end::authority_status,
-    date '2015-01-01' + ((i * 7) % 3650),
-    case when gate_conditional then 'conditional'
-         when thin_file then 'unrated'
-         else 'satisfactory' end::safety_rating,
-    case when thin_file then 1 else 3 + (i % 60) end,
-    'Unit ' || i || ', Drayage Row, US',
-    'na'::ab5_status,
-    (i % 3 <> 0),
-    dband,
-    case when dband = 'red' then 'dnu'
-         when dband = 'orange' then 'restricted'
-         when dband = 'yellow' then 'onboarding'
-         else 'approved' end::carrier_status
-  from banded
-  returning id
-)
-insert into risk_scores (carrier_id, fleet_size_score, vehicle_oos_score, driver_oos_score, accident_rate_score, overall_score, quality_band, confidence_modifier, divergence_flag, dispatch_band)
-select cid, fleet, veh, drv, acc, overall, qband,
-       case when thin_file then 0.3 else 1.0 end,
-       (i % 53 = 0),
-       dband
-from banded;
+-- All 1,136 risk_scores (4 named + 1,132 generated), computed by the engine.
+\ir scores.generated.sql
 
 -- ---------------------------------------------------------------------
 -- Users — one per role (deterministic ids so RLS tests can set the JWT sub).

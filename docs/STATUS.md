@@ -28,6 +28,11 @@ dictionary (§4) and RBAC matrix (§5) and **validated end-to-end on Postgres 16
   own-fleet units, 4 named example carriers, 10 role users, 9 integrations, plus
   insurance/claims/DNU/dossier/load-check fixtures. **Correct directionality**
   (an 86 is excellent/green; a revoked carrier is red despite a good score).
+  Scores are **engine-emitted literals** — the FMCSA weighted-sum is computed by
+  `packages/scoring` at build time (`npm run seed:build` → `supabase/seed/*.generated.sql`
+  via `\ir`) and **never re-expressed in SQL**, so the seed cannot be a second scoring
+  engine. `tests/unit/seed-scoring.test.ts` fails CI if a seed literal ever diverges
+  from the engine (proven against both an engine-weight change and a hand-edited literal).
 - **`packages/shared/src/enums.ts`** — TS mirror of every Postgres enum; one
   dictionary for app/workers/tests. `packages/fmcsa-adapter` snapshot interface
   aligned to `fmcsa_snapshots`.
@@ -35,9 +40,9 @@ dictionary (§4) and RBAC matrix (§5) and **validated end-to-end on Postgres 16
   `npm run test`) and `tests/rls/{assert.sql,run_local.sh}` (behavioral RLS +
   invariant proof). CI now has a Postgres-backed `db` job (`npm run db:validate`).
 
-**Verified locally:** 48/48 vitest pass · typecheck clean · migrations apply on
+**Verified locally:** 60/60 vitest pass · typecheck clean · migrations apply on
 PG16 · all RLS/invariant assertions pass · 1,136/22 canonical counts · 0 score
-directionality violations.
+directionality violations · seed↔engine anti-drift guard green.
 
 ## BLOCKERS — need owner action
 
