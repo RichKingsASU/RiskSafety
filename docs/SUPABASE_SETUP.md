@@ -29,22 +29,33 @@ supabase db push
 ```
 
 ## Option B — direct psql (no CLI)
+Apply migrations **in order**, then the seed. On Supabase the `authenticated` /
+`anon` roles already exist, so the 0003 RLS policies resolve as-is.
 ```bash
-psql "postgresql://postgres:<DB_PASSWORD>@db.xzmegdibmdufgfldsbms.supabase.co:5432/postgres?sslmode=require" \
-  -f supabase/migrations/0001_init.sql
+CONN="postgresql://postgres:<DB_PASSWORD>@db.xzmegdibmdufgfldsbms.supabase.co:5432/postgres?sslmode=require"
+for f in supabase/migrations/0001_init.sql supabase/migrations/0002_schema.sql supabase/migrations/0003_rls.sql; do
+  psql "$CONN" -v ON_ERROR_STOP=1 -f "$f"
+done
+psql "$CONN" -v ON_ERROR_STOP=1 -f supabase/seed/seed.sql   # 1,136 carriers + 22 units
 ```
 If your network is **IPv4-only** (the direct host is IPv6-only), use the session pooler
-— get `<region>` from Dashboard → Project Settings → Database → Connection pooling:
-```bash
-psql "postgresql://postgres.xzmegdibmdufgfldsbms:<DB_PASSWORD>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require" \
-  -f supabase/migrations/0001_init.sql
-```
+— get `<region>` from Dashboard → Project Settings → Database → Connection pooling
+(`postgresql://postgres.xzmegdibmdufgfldsbms:<DB_PASSWORD>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require`).
 
 ## Verify after applying
 ```sql
-select tablename from pg_tables where schemaname='public' order by 1;
--- expect: audit_logs, carriers, risk_scores, safety_events (Phase 0 golden set)
-select relname from pg_class where relrowsecurity and relkind='r';  -- RLS on all four
+select count(*) from pg_tables where schemaname='public';          -- expect 27
+select count(*) from carriers;                                     -- expect 1136
+select count(*) from fleet_assets;                                 -- expect 22
+select count(*) from pg_policies where schemaname='public';        -- expect 101
+-- score directionality holds (expect 0):
+select count(*) from risk_scores
+ where (overall_score>=80 and quality_band<>'excellent')
+    or (overall_score<40  and quality_band<>'poor');
+```
+Or run the full behavioral proof (RLS + invariants) against any reachable Postgres:
+```bash
+PSQL="psql \"$CONN\"" npm run db:validate    # local: PSQL="psql -h /var/run/postgresql -U postgres"
 ```
 
 ## To let the Claude Code environment reach Supabase (optional)
@@ -53,7 +64,11 @@ The sandbox's network policy would need to allow `*.supabase.co` / `*.supabase.c
 https://code.claude.com/docs/en/claude-code-on-the-web (network policies). Until
 then, apply migrations from your machine or CI as above.
 
-## Still needed before Phase 1 schema
-The remaining ~22 tables + the 10-role RLS matrix require the **table dictionary**
-and **RBAC matrix** from `docs/Forrest_RSOS_Project_Documentation.md`, which is still
-a placeholder. Provide that doc and Phase 1 migrations can be generated.
+## Phase 1 schema — DONE (as of the docs landing)
+The table dictionary and RBAC matrix in `docs/Forrest_RSOS_Project_Documentation.md`
+are now in-repo, so the full Phase-1 database layer is generated and validated:
+- `0002_schema.sql` — all 27 tables, enums, FKs, indexes, audit + touch triggers.
+- `0003_rls.sql` — ten-role RLS (101 policies).
+- `supabase/seed/seed.sql` — 1,136 carriers + 22 units, correct directionality.
+
+Only the **remote apply** (this runbook) remains, pending network/access.

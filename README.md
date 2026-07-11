@@ -30,20 +30,26 @@ packages/fmcsa-adapter   the ONLY raw-FMCSA → internal mapping site  (Phase 3 
 workers/datahub-daily    daily FMCSA sync                     (Phase 3)
 workers/sms-monthly      monthly SMS sync                     (Phase 3)
 n8n/                     orchestration                        (later)
-supabase/migrations      schema + RLS + append-only audit     0001 golden; rest Phase 1
-tests/{unit,integration,rls,e2e}                              per phase
+supabase/migrations      schema + RLS + append-only audit     ✅ 0001–0003 (all 27 tables)
+supabase/seed            1,136 carriers + 22 units, correct direction  ✅
+tests/{unit,rls}         enum parity + RLS/invariant assertions ✅  (integration,e2e per phase)
 docs/                    spec + build prompt + ADRs
 ```
 
 ## Commands
 ```bash
 npm install
-npm run test         # all vitest suites (scoring golden tests included)
+npm run test         # all vitest suites (scoring golden + enum-parity tests)
 npm run test:unit
 npm run typecheck
+npm run db:validate  # apply migrations+seed to a Postgres and run RLS/invariant checks
+                     #   PSQL="psql -h HOST -U postgres" npm run db:validate
 ```
 
 ## Build status
-Scaffold + canonical scoring wired and tested. **Blocked** on: Supabase access
-(Work4Vince org) and two missing spec docs — see
-[`docs/STATUS.md`](./docs/STATUS.md).
+Phase-1 **database layer complete**: all 27 tables from the table dictionary,
+ten-role RLS mapping the RBAC matrix, append-only audit, and a deterministic
+1,136-carrier seed — validated end-to-end on Postgres 16 (`npm run db:validate`)
+and in CI. Scoring engine + canonical constants remain golden. Next: apply the
+migrations to the live Supabase project (needs network/access) and start the
+Phase-4 UI. See [`docs/STATUS.md`](./docs/STATUS.md).
