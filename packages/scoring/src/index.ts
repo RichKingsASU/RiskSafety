@@ -10,6 +10,7 @@ import {
   DISPATCH_DEFAULTS,
   type QualityBand,
   type DispatchBand,
+  type DispatchCutoffs,
   type AuthorityStatus,
   type SafetyRating,
 } from '@forrest/shared/constants';
@@ -114,8 +115,18 @@ function hardGateTriggered(gates: GateInputs): boolean {
  * Full evaluation: composite + quality band + dispatch eligibility.
  * Dispatch eligibility (green|yellow|orange|red) is derived from the quality band
  * PLUS hard gates and open flags — it is NOT the quality band itself (CLAUDE.md #2).
+ *
+ * `cutoffs` defaults to the canonical `DISPATCH_DEFAULTS` (the live config, pending
+ * Q1 sign-off). It exists only so a what-if PREVIEW can score the population at
+ * candidate green/yellow lines without mutating config. The banding rules — hard-gate
+ * override, open-flag downgrade, thin-file floor — are unchanged and NOT duplicated
+ * anywhere; there is still exactly one implementation.
  */
-export function computeScore(inputs: ScoreInputs, gates: GateInputs): ScoreResult {
+export function computeScore(
+  inputs: ScoreInputs,
+  gates: GateInputs,
+  cutoffs: DispatchCutoffs = DISPATCH_DEFAULTS,
+): ScoreResult {
   const base = computeOverallScore(inputs);
   const overall_score = base.overall;
   const quality_band = toQualityBand(overall_score);
@@ -130,9 +141,9 @@ export function computeScore(inputs: ScoreInputs, gates: GateInputs): ScoreResul
   } else {
     // Base eligibility from the score (defaults pending Q1 sign-off).
     let band: DispatchBand =
-      overall_score >= DISPATCH_DEFAULTS.green_min
+      overall_score >= cutoffs.green_min
         ? 'green'
-        : overall_score >= DISPATCH_DEFAULTS.yellow_min
+        : overall_score >= cutoffs.yellow_min
           ? 'yellow'
           : 'orange';
 

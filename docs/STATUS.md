@@ -44,6 +44,17 @@ dictionary (§4) and RBAC matrix (§5) and **validated end-to-end on Postgres 16
 PG16 · all RLS/invariant assertions pass · 1,136/22 canonical counts · 0 score
 directionality violations · seed↔engine anti-drift guard green.
 
+## Done (Phase 1 — what-if preview, non-frozen, read-only)
+- **What-if band-volume preview** at `packages/preview` (`@forrest/preview`).
+  Scores a deterministic 1,136-carrier fixture population at *candidate*
+  green/yellow cutoffs and reports dispatch bands + Danica's triage review queue.
+  Reuses the canonical `computeScore` (cutoffs are an optional override; the live
+  `DISPATCH_DEFAULTS` are never mutated — Q1 stays open). Writes nothing to config.
+  - Run: `npm run preview -- --green 75 --yellow 55` (or `-s 80:60 -s 72:52`).
+  - Guardrail-tested (`packages/preview/src/preview.test.ts`); see `docs/adr/0001-what-if-band-preview.md`.
+  - Unblocks the *cutoff* half of Decision 1: Matt can pick the lines by looking
+    at real volumes; sign-off is then a one-line change to `DISPATCH_DEFAULTS`.
+
 ## BLOCKERS — need owner action
 
 ### 1. Apply migrations to the live Supabase project (network/access)
@@ -69,7 +80,8 @@ intended target before go-live.
 
 ## Open questions (from CLAUDE.md — config placeholders, not invented)
 - **Q1** R/Y/G thresholds + band→eligibility mapping (`packages/shared` defaults;
-  asserted in `packages/scoring` tests).
+  asserted in `packages/scoring` tests). The read-only what-if preview (above) lets
+  the lines be chosen by looking at real queue volumes — no value invented.
 - **Q2** Blue Wire weights + two source docs.
 - **Q5** TMS name/API/auth (connector interface-first).
 - **Q7** Final platform mandate (Supabase-first vs Azure/Entra).
