@@ -1,0 +1,10 @@
+# Netlify build config for the Forrest RSOS monorepo.
+# Builds the web workspace and publishes its static export (real index.html at
+# the root), so "/" returns 200 instead of 404. Next `output: 'export'` writes
+# a per-route .html file, so no SPA catch-all redirect is required.
+[build]
+  command = "npm run build --workspace @forrest/web"
+  publish = "apps/web/out"
+
+[build.environment]
+  NODE_VERSION = "22"
