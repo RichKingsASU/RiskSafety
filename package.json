@@ -16,6 +16,7 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "seed:build": "node supabase/seed/build.mjs",
     "test:unit": "vitest run packages tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:rls": "vitest run tests/rls --passWithNoTests",
