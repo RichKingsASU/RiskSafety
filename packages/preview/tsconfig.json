@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    // The CLI is run directly by Node (TS type-stripping), which requires
+    // explicit .ts extensions on relative imports. emitDeclarationOnly keeps the
+    // composite project valid while allowing those extensions.
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true
+  },
+  "references": [{ "path": "../shared" }, { "path": "../scoring" }],
+  "include": ["src/**/*.ts", "bin/**/*.ts"]
+}

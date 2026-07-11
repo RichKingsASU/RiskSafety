@@ -17,6 +17,34 @@ jobs:
       - run: npm ci || npm install
       - name: Typecheck
         run: npm run typecheck
+      - name: Seed build is deterministic on Node 22 (native TS type-stripping)
+        # seed:build imports the canonical TS engine directly (@forrest/scoring),
+        # so it depends on Node 22's native type-stripping. Run it here — on the
+        # pinned 22 — and fail if it doesn't rebuild byte-for-byte identical files.
+        run: |
+          npm run seed:build
+          git diff --exit-code -- supabase/seed/*.generated.sql supabase/seed/dataset.generated.json
       - name: Unit + scoring golden tests
         run: npm run test
-      # Phase 1+ will add: test:integration, test:rls, test:e2e, security scan.
+
+  db:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      PSQL: 'psql -h localhost -U postgres'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Apply migrations + seed and run RLS / invariant assertions
+        run: bash tests/rls/run_local.sh
+      # Phase 1+ will add: test:integration, test:e2e, security scan.

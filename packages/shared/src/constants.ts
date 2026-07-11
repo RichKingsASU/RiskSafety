@@ -61,6 +61,19 @@ export const STATUS_COLORS = {
   red: 'Blocked / Do-Not-Use',
 } as const;
 
+/**
+ * Candidate green/yellow dispatch cutoffs. The canonical live values are
+ * `DISPATCH_DEFAULTS` (pending Q1 sign-off); this type exists so a what-if
+ * PREVIEW can try other lines without ever mutating the config. Preview only —
+ * nothing here is written to the live configuration.
+ */
+export interface DispatchCutoffs {
+  /** Score at/above which a carrier is dispatch-eligible (green). */
+  green_min: number;
+  /** Score at/above which a carrier needs review (yellow); below -> restricted. */
+  yellow_min: number;
+}
+
 export type QualityBand = 'excellent' | 'good' | 'fair' | 'poor';
 export type DispatchBand = 'green' | 'yellow' | 'orange' | 'red';
 export type AuthorityStatus = 'active' | 'inactive' | 'revoked' | 'pending';

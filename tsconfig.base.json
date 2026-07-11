@@ -15,7 +15,8 @@
     "paths": {
       "@forrest/shared/constants": ["packages/shared/src/constants.ts"],
       "@forrest/shared": ["packages/shared/src/index.ts"],
-      "@forrest/scoring": ["packages/scoring/src/index.ts"]
+      "@forrest/scoring": ["packages/scoring/src/index.ts"],
+      "@forrest/preview": ["packages/preview/src/index.ts"]
     }
   }
 }

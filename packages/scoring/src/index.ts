@@ -114,6 +114,12 @@ function hardGateTriggered(gates: GateInputs): boolean {
  * Full evaluation: composite + quality band + dispatch eligibility.
  * Dispatch eligibility (green|yellow|orange|red) is derived from the quality band
  * PLUS hard gates and open flags — it is NOT the quality band itself (CLAUDE.md #2).
+ *
+ * ONE behavior: banding is against the live `DISPATCH_DEFAULTS` only. There is no
+ * cutoff parameter — no caller can make the engine band on other lines. What-if
+ * previews live in `@forrest/preview`, which reads THIS numeric score and applies
+ * candidate cutoffs in its own code (see ADR-0001). This single-code-path contract
+ * is what the directionality / anti-drift guardrails depend on.
  */
 export function computeScore(inputs: ScoreInputs, gates: GateInputs): ScoreResult {
   const base = computeOverallScore(inputs);

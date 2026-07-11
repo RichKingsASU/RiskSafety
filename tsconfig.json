@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/shared" },
     { "path": "./packages/scoring" },
+    { "path": "./packages/preview" },
     { "path": "./packages/fmcsa-adapter" }
   ]
 }

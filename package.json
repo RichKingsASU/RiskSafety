@@ -15,13 +15,18 @@
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "tsc -b",
+    "preview": "node packages/preview/bin/preview-bands.ts",
     "test": "vitest run",
+    "seed:build": "node supabase/seed/build.mjs",
     "test:unit": "vitest run packages tests/unit",
     "test:integration": "vitest run tests/integration",
-    "test:rls": "vitest run tests/rls",
-    "test:e2e": "vitest run tests/e2e"
+    "test:rls": "vitest run tests/rls --passWithNoTests",
+    "test:rls:sql": "bash tests/rls/run_local.sh",
+    "test:e2e": "vitest run tests/e2e --passWithNoTests",
+    "db:validate": "bash tests/rls/run_local.sh"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"
   }
