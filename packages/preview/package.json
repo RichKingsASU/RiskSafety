@@ -1,0 +1,19 @@
+{
+  "name": "@forrest/preview",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@forrest/scoring": "*",
+    "@forrest/shared": "*"
+  },
+  "scripts": {
+    "preview": "node bin/preview-bands.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  }
+}

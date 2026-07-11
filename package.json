@@ -15,6 +15,7 @@
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "tsc -b",
+    "preview": "node packages/preview/bin/preview-bands.ts",
     "test": "vitest run",
     "seed:build": "node supabase/seed/build.mjs",
     "test:unit": "vitest run packages tests/unit",
@@ -25,6 +26,7 @@
     "db:validate": "bash tests/rls/run_local.sh"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"
   }
