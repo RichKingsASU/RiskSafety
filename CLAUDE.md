@@ -64,6 +64,7 @@ Green = Approved · Yellow = Needs Review · Orange = Restricted · Red = Blocke
 - Thin‑file guard: below the inspection‑count threshold, **do not auto‑fail** on percentage metrics; route to qualitative review; the confidence modifier keeps thin files near neutral.
 - **No browser storage** in client components (React state only).
 - **UI copy is plain‑language**, grounded in carrier/claims/dispatch workflow. No system/jargon copy in user‑facing surfaces.
+- **Provisional Export Mode:** `apps/web` uses `output: 'export'` (static). This is PROVISIONAL. BOTH the Vercel and the Netlify deployments depend on it and BOTH must be reworked (Next.js server runtime, not static export) when the real Supabase-auth + RLS frontend lands. Remove `output: 'export'` and any custom `outputDirectory`/`distDir` together, and rejoin `apps/web` to root `tsc -b` CI at that time. See Q7 (backend platform).
 
 ## Navigation — one shell, not fifteen
 Single collapsible left nav on **every** screen (14 items): Dashboard · Carriers · Pre‑Screen · Drivers · Equipment · Insurance · FMCSA Monitoring · Claims · Compliance Tasks · Risk Review · Documents · Own‑Fleet Safety · Reports · Admin. **Admin/Settings reachable from every screen.** Fraud‑detection and capacity‑anomaly functions live **inside Risk Review** (the old separate Fraud Detection and Capacity Analytics screens are merged). Reconcile the exact set against the *Part A v2 global design header* if it differs.
