@@ -205,4 +205,43 @@ begin
 end $$;
 reset role;
 
+-- ===================== GOVERNANCE CONFIG — ships empty + append-only tiebreak (0006) =====================
+-- Runs as the migration owner (RLS bypassed) — this is a schema-invariant check, not
+-- an RLS check. Test rows are marked created_by='assert.sql' and deleted at the end so
+-- the table returns to EMPTY (the ships-empty invariant). No real threshold is seeded.
+do $$
+declare rejected boolean := false;
+begin
+  if (select count(*) from governance_config) <> 0 then
+    raise exception 'FAIL: governance_config must ship EMPTY (got %)', (select count(*) from governance_config); end if;
+
+  insert into governance_config (config_key, value, enabled, effective_from, created_by)
+  values ('dispatch_thresholds', '{"green_min":60,"yellow_min":40}'::jsonb, false, '2099-01-01T00:00:00Z', 'assert.sql');
+
+  -- A duplicate (config_key, effective_from) must be REJECTED by the unique constraint.
+  begin
+    insert into governance_config (config_key, value, enabled, effective_from, created_by)
+    values ('dispatch_thresholds', '{"green_min":70,"yellow_min":50}'::jsonb, false, '2099-01-01T00:00:00Z', 'assert.sql');
+  exception when unique_violation then rejected := true;
+  end;
+  if not rejected then
+    raise exception 'FAIL: duplicate (config_key, effective_from) must be rejected by the unique constraint'; end if;
+
+  -- A correction at a FRESH effective_from is allowed (append-only, not a mutation).
+  insert into governance_config (config_key, value, enabled, effective_from, created_by)
+  values ('dispatch_thresholds', '{"green_min":65,"yellow_min":45}'::jsonb, false, '2099-02-01T00:00:00Z', 'assert.sql');
+
+  -- config_active_as_of resolves the greatest effective_from <= ts, deterministically.
+  if (select (value->>'green_min')::int from config_active_as_of('dispatch_thresholds','2099-03-01T00:00:00Z')) <> 65 then
+    raise exception 'FAIL: config_active_as_of should resolve the latest in-force row'; end if;
+  if config_active_as_of('dispatch_thresholds','2098-01-01T00:00:00Z') is not null then
+    raise exception 'FAIL: config_active_as_of before any effective_from must be null'; end if;
+
+  -- Restore the ships-empty invariant.
+  delete from governance_config where created_by = 'assert.sql';
+  if (select count(*) from governance_config) <> 0 then
+    raise exception 'FAIL: governance_config test rows not cleaned'; end if;
+  raise notice 'PASS: governance_config empty; duplicate (key,effective_from) rejected; config_active_as_of deterministic';
+end $$;
+
 select '========== ALL RLS + INVARIANT ASSERTIONS PASSED ==========' as result;

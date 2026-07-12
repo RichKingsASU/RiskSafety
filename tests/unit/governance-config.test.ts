@@ -66,6 +66,17 @@ describe('configActiveAsOf — greatest effective_from <= asOf', () => {
     expect(blueWireEnabled(future, AT)).toBe(false);
     expect(blueWireWeights(future, AT)).toBeNull();
   });
+
+  it('resolution is unambiguous: no two rows share (config_key, effective_from)', () => {
+    // The greatest-effective_from-<=-ts rule needs no secondary tiebreak because the DB
+    // enforces UNIQUE (config_key, effective_from) (migration 0006). Same-timestamp ties
+    // therefore cannot reach the accessor; a correction is a NEW row at a fresh
+    // effective_from. The actual duplicate-INSERT rejection is a Postgres constraint,
+    // proven in tests/rls/assert.sql (a unit test has no DB). Here we just assert the
+    // invariant the accessor relies on: distinct (key, effective_from) in a valid set.
+    const seen = new Set(rows.map((r) => `${r.config_key}@${r.effective_from}`));
+    expect(seen.size).toBe(rows.length);
+  });
 });
 
 describe('effective-dating — a decision reads config AS OF its own time', () => {

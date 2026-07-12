@@ -64,6 +64,12 @@ decision timestamp.
 
 ## Consequences
 
+- **Fail closed.** When `governance_config` is empty, or has no entry active as of the
+  decision time `T`, decisions resolve to the **most conservative** behavior —
+  provisional banding, Blue Wire off, weights null — and **never** to a seeded or
+  hardcoded default. This binds the Phase 2 implementer who wires `computeScore` to
+  consume config: absent/inactive config must fall back to the safe/provisional path,
+  never to a permissive assumed value.
 - On **empty config** the system is byte-for-byte identical to today: dispatch
   provisional, Blue Wire disabled, no weights. (Proven in `tests/unit/governance-config.test.ts`.)
 - When Q1 lands: INSERT a `dispatch_thresholds` row (data) → `dispatchBandsProvisional`

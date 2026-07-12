@@ -32,7 +32,15 @@ create table governance_config (
   enabled         boolean not null default false,
   effective_from  timestamptz not null,
   created_by      text not null,
-  created_at      timestamptz not null default now()
+  created_at      timestamptz not null default now(),
+  -- Tiebreak / evidentiary constraint. Append-only is preserved: a correction is a
+  -- NEW insert at a FRESH effective_from, never a mutation of an existing row. Making
+  -- (config_key, effective_from) unique means there is exactly one "config in force as
+  -- of date D" per key — an unambiguous, non-mutable record, which is the stronger
+  -- evidentiary posture for the negligent-selection (Montgomery) defense this system
+  -- exists to support. It also makes config_active_as_of (greatest effective_from <= ts)
+  -- deterministic with no secondary tiebreak.
+  constraint governance_config_key_effective_uniq unique (config_key, effective_from)
 );
 
 comment on table governance_config is
@@ -48,8 +56,9 @@ comment on column governance_config.enabled is
   'Blue Wire weights apply only when the active row is enabled=true. dispatch_thresholds '
   'presence alone flips bands off provisional.';
 
--- Greatest-effective_from lookup per key.
-create index idx_governance_config_key_eff on governance_config (config_key, effective_from desc);
+-- The unique (config_key, effective_from) constraint above creates the btree that
+-- config_active_as_of uses for the greatest-effective_from-<=-ts lookup (a backward
+-- index scan serves the `order by effective_from desc limit 1`); no separate index needed.
 
 -- Active config for a key as of a timestamp = greatest effective_from <= p_as_of.
 -- Returns NULL when none (empty config, or all rows are future-dated).

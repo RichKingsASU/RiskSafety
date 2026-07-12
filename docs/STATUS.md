@@ -104,3 +104,8 @@ intended target before go-live.
 - **Q5** TMS name/API/auth (connector interface-first).
 - **Q7** Final platform mandate (Supabase-first vs Azure/Entra).
 - **Q15** Dispatch-block activation (ratify before flipping the flag).
+- **Q16** Who may INSERT a `governance_config` row? Setting the Q1 dispatch thresholds
+  and Q2 Blue Wire weights is **Matt's authority**, not a generic staff write. The
+  current no-write RLS policy on `governance_config` (SELECT-only for staff) is correct
+  for now; the write path — restricted to the threshold/weight owner — must be scoped
+  when the admin settings UI is designed (post-auth, admin-only). See `docs/adr/0003-governance-config-layer.md`.
