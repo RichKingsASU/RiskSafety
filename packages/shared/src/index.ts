@@ -5,4 +5,4 @@
 //                 supabase/migrations). One dictionary for app + workers + tests.
 export * from './constants';
 export * from './enums';
-export * from './governance-config';
+export * from './governance-config.ts';

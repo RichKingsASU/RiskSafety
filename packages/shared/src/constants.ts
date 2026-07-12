@@ -8,7 +8,7 @@ import {
   blueWireWeights,
   type BlueWireWeights,
   type GovernanceConfigRow,
-} from './governance-config';
+} from './governance-config.ts';
 
 /** Forrest insurance minimums (USD). Insurance is a HARD GATE, not a score input. */
 export const INSURANCE_MINIMUMS = {
