@@ -4,4 +4,4 @@ project_id = "risksafety"
 
 [db]
 # Match the Supabase Postgres major version.
-major_version = 16
+major_version = 17
