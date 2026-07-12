@@ -168,4 +168,41 @@ begin
   raise notice 'PASS: HIGH = GOOD holds across all seeded scores';
 end $$;
 
+-- ===================== APP-SCHEMA GRANTS SCOPED TO AUTHENTICATED (0005) =====================
+-- 0005 revoked `usage on schema app` + `execute on app.*` from anon (least privilege).
+-- Positive: authenticated still reaches app.uid()/app.role() and RLS still resolves.
+-- Negative: anon has NO access to schema app — any future migration that re-grants it
+-- to anon makes THIS assertion fail, keeping the decision enforced in CI.
+set role authenticated;
+select pg_temp.act_as('33333333-3333-3333-3333-333333333333');  -- triage reviewer
+do $$
+begin
+  perform app.uid();   -- must not raise
+  if app.role() <> 'triage_reviewer' then
+    raise exception 'FAIL: authenticated app.role() should resolve (got %)', app.role(); end if;
+  if (select count(*) from carriers) < 1136 then
+    raise exception 'FAIL: authenticated RLS should still resolve via app.* helpers'; end if;
+  raise notice 'PASS: authenticated retains app-schema access (app.uid/app.role work, RLS resolves)';
+end $$;
+reset role;
+
+set role anon;
+do $$
+declare blocked boolean;
+begin
+  blocked := false;
+  begin perform app.uid();
+  exception when insufficient_privilege then blocked := true; end;
+  if not blocked then
+    raise exception 'FAIL: anon must NOT reach app.uid() — usage on schema app must be revoked'; end if;
+
+  blocked := false;
+  begin perform app.role();
+  exception when insufficient_privilege then blocked := true; end;
+  if not blocked then
+    raise exception 'FAIL: anon must NOT reach app.role() — schema app is authenticated-only'; end if;
+  raise notice 'PASS: anon has no access to schema app / app.* (scoped to authenticated only)';
+end $$;
+reset role;
+
 select '========== ALL RLS + INVARIANT ASSERTIONS PASSED ==========' as result;

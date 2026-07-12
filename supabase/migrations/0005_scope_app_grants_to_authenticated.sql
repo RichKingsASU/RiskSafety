@@ -1,0 +1,31 @@
+-- supabase/migrations/0005_scope_app_grants_to_authenticated.sql
+-- Scope the app-schema privileges to `authenticated` only — revoke them from `anon`.
+--
+-- WHY
+--   0004_grants.sql granted USAGE on schema `app` and EXECUTE on the app.* helper
+--   functions (app.uid/app.role/app.is_*/app.self_carrier) to BOTH `authenticated`
+--   and `anon`, with an explicit open question: does `anon` actually need it?
+--   Audit says NO. RSOS is an internal, RLS-everywhere system: every RLS policy is
+--   scoped `to authenticated`, no policy targets `anon`/`public`, there are no edge
+--   functions, and the external carrier portal uses the *authenticated* role
+--   `external_carrier` (not the anon role). Nothing anon-facing calls app.*.
+--   Least privilege therefore says the anon role should not reach schema `app` at all.
+--
+-- WHAT (mirrors EXACTLY the app-schema objects 0004 granted to anon — no more, no less)
+--   - REVOKE USAGE on schema `app` from anon.
+--   - REVOKE EXECUTE on all functions in schema `app` from anon.
+--   `authenticated`'s USAGE + EXECUTE are deliberately left exactly as 0004 set them.
+--   The public-schema grants to anon (usage on schema public, select on public tables)
+--   are intentionally NOT touched here — they are outside app-schema scope, and RLS
+--   (default-deny, no anon policies) already governs what anon can read.
+--
+-- 0004 IS LEFT INTACT ON PURPOSE
+--   0004 is already applied and recorded on the linked remote (ref xzmegdibmdufgfldsbms).
+--   Applied migrations are immutable — this is a forward fix, never an edit of 0004.
+--   The audit_logs append-only revoke stays bundled in 0004; this migration does not
+--   touch it.
+--
+-- IDEMPOTENT — REVOKE is naturally idempotent; safe to re-run / no-op if already scoped.
+
+revoke usage on schema app from anon;
+revoke execute on all functions in schema app from anon;
