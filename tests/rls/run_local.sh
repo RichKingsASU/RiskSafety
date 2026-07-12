@@ -5,7 +5,7 @@
 #
 # Usage:
 #   PSQL="psql -h /var/run/postgresql -p 5433 -U postgres" tests/rls/run_local.sh
-# or set PGHOST/PGPORT/PGUSER and just run it. Requires a reachable Postgres 16
+# or set PGHOST/PGPORT/PGUSER and just run it. Requires a reachable Postgres 17
 # where the connecting user is a superuser (needed to SET ROLE authenticated).
 set -euo pipefail
 
@@ -34,15 +34,10 @@ done
 echo "==> applying seed"
 $ADMIN -d "$DB" -v ON_ERROR_STOP=1 -f "$ROOT/supabase/seed/seed.sql" >/dev/null
 
-echo "==> granting app-role privileges (Supabase default), then re-asserting audit append-only"
-$ADMIN -d "$DB" -v ON_ERROR_STOP=1 -c "
-grant usage on schema public to authenticated, anon;
-grant usage on schema app    to authenticated, anon;
-grant all    on all tables    in schema public to authenticated;
-grant select on all tables    in schema public to anon;
-grant execute on all functions in schema app to authenticated, anon;
--- append-only backbone: keep update/delete revoked even after the blanket grant
-revoke update, delete on audit_logs from authenticated, anon;" >/dev/null
+# App-role privilege grants (usage on schema app, execute on app functions, the
+# append-only audit_logs revoke, etc.) are NOT re-issued here — they live in
+# supabase/migrations/0004_grants.sql and are applied by the migration loop above.
+# Single source of truth; edit the grants there, not here, so the two cannot drift.
 
 echo "==> running assertions"
 $ADMIN -d "$DB" -v ON_ERROR_STOP=1 -f "$ROOT/tests/rls/assert.sql"
