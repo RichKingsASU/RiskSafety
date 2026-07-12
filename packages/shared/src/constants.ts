@@ -34,6 +34,10 @@ export const QUALITY_BAND_CUTOFFS = {
  * Dispatch-eligibility cutoffs (DEFAULTS — pending Open Question Q1 sign-off).
  * Eligibility is distinct from the quality band and is additionally gated by
  * hard gates and open flags. Keep these here so Q1 is a one-line change.
+ *
+ * These are the provisional lines the triage (Danica) and dispatch views react
+ * to. They are NOT ratified — Matt owns the green/yellow cutoffs (Q1). When he
+ * signs off, update these values and set DISPATCH_BANDS_PROVISIONAL to false.
  */
 export const DISPATCH_DEFAULTS = {
   green_min: 60, // Good and above eligible by default
@@ -41,6 +45,33 @@ export const DISPATCH_DEFAULTS = {
   divergence_tolerance: 1, // band-steps of disagreement vs CarrierAssure before flagging
   thin_file_inspection_threshold: 3, // below this, no auto-fail on % metrics (Q1/Q3)
 } as const;
+
+/**
+ * True while DISPATCH_DEFAULTS are placeholders awaiting Q1 sign-off (Matt).
+ * Surfaces should read this to badge the bands as "provisional" rather than
+ * presenting them as ratified policy. Flip to false only when Q1 lands.
+ */
+export const DISPATCH_BANDS_PROVISIONAL = true;
+
+/**
+ * Blue Wire supplemental weighting (Open Question Q2 — Matt).
+ *
+ * Blue Wire is the internal engine that computes the composite; it can also
+ * carry supplemental signal on top of the FMCSA scorecard. HOW MUCH that signal
+ * counts is a policy call owned by Matt, and the signal set + weights come from
+ * the two outstanding Blue Wire source docs (Q2). Until those land we DO NOT
+ * invent weights: the slot stays `null` and Blue Wire contributes nothing to
+ * anything the platform shows.
+ *
+ * When Q2 is signed off, populate this map from the agreed weights and set
+ * BLUE_WIRE_ENABLED to true. This is the SINGLE source of truth — never hardcode
+ * Blue Wire numbers anywhere else (check-guardrails rule #7).
+ */
+export const BLUE_WIRE_WEIGHTS: Readonly<Record<string, number>> | null = null;
+
+/** Blue Wire stays dormant until Q2 sets the weights above. Never enable with
+ *  a null/empty weight map. */
+export const BLUE_WIRE_ENABLED = false;
 
 /** Canonical population figures (memory of record). Used for seed sizing and displays. */
 export const CARRIER_POPULATION = 1136;
