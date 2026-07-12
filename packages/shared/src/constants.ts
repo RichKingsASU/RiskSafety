@@ -2,6 +2,14 @@
 // Single source of truth for canonical RSOS constants.
 // Change these here only — never inline magic numbers elsewhere.
 
+import {
+  dispatchBandsProvisional,
+  blueWireEnabled,
+  blueWireWeights,
+  type BlueWireWeights,
+  type GovernanceConfigRow,
+} from './governance-config';
+
 /** Forrest insurance minimums (USD). Insurance is a HARD GATE, not a score input. */
 export const INSURANCE_MINIMUMS = {
   auto_liability: 1_000_000,
@@ -46,32 +54,37 @@ export const DISPATCH_DEFAULTS = {
   thin_file_inspection_threshold: 3, // below this, no auto-fail on % metrics (Q1/Q3)
 } as const;
 
-/**
- * True while DISPATCH_DEFAULTS are placeholders awaiting Q1 sign-off (Matt).
- * Surfaces should read this to badge the bands as "provisional" rather than
- * presenting them as ratified policy. Flip to false only when Q1 lands.
- */
-export const DISPATCH_BANDS_PROVISIONAL = true;
+// ---------------------------------------------------------------------------
+// Q1/Q2 governance flags — now DERIVED from the effective-dated governance_config
+// layer (supabase/migrations/0006_governance_config.sql), not hand-set here.
+//
+// The config ships EMPTY, so each constant below resolves to exactly its previous
+// value (provisional / null / disabled) — behavior is byte-for-byte unchanged.
+// These module-load constants represent the empty-config baseline and keep the
+// historical names working for existing importers. RUNTIME surfaces that make a
+// dated decision should instead call the accessors in ./governance-config with the
+// fetched rows and the DECISION timestamp (read config as-of the decision, not now),
+// which is the contemporaneous due-diligence property. Matt's eventual Q1/Q2 values
+// arrive as governance_config rows (data), never as invented numbers here
+// (check-guardrails rule #7).
+// ---------------------------------------------------------------------------
+const EMPTY_GOVERNANCE_CONFIG: readonly GovernanceConfigRow[] = [];
+const GOVERNANCE_EPOCH = new Date(0); // config is empty -> the as-of instant is irrelevant
 
-/**
- * Blue Wire supplemental weighting (Open Question Q2 — Matt).
- *
- * Blue Wire is the internal engine that computes the composite; it can also
- * carry supplemental signal on top of the FMCSA scorecard. HOW MUCH that signal
- * counts is a policy call owned by Matt, and the signal set + weights come from
- * the two outstanding Blue Wire source docs (Q2). Until those land we DO NOT
- * invent weights: the slot stays `null` and Blue Wire contributes nothing to
- * anything the platform shows.
- *
- * When Q2 is signed off, populate this map from the agreed weights and set
- * BLUE_WIRE_ENABLED to true. This is the SINGLE source of truth — never hardcode
- * Blue Wire numbers anywhere else (check-guardrails rule #7).
- */
-export const BLUE_WIRE_WEIGHTS: Readonly<Record<string, number>> | null = null;
+/** True while no active dispatch_thresholds config exists (Q1 unratified). Empty -> true. */
+export const DISPATCH_BANDS_PROVISIONAL: boolean = dispatchBandsProvisional(
+  EMPTY_GOVERNANCE_CONFIG,
+  GOVERNANCE_EPOCH,
+);
 
-/** Blue Wire stays dormant until Q2 sets the weights above. Never enable with
- *  a null/empty weight map. */
-export const BLUE_WIRE_ENABLED = false;
+/** Active Blue Wire weights, else null. Empty/disabled config -> null (never invented). */
+export const BLUE_WIRE_WEIGHTS: BlueWireWeights | null = blueWireWeights(
+  EMPTY_GOVERNANCE_CONFIG,
+  GOVERNANCE_EPOCH,
+);
+
+/** True only when an active, explicitly-enabled weights row exists. Empty -> false. */
+export const BLUE_WIRE_ENABLED: boolean = blueWireEnabled(EMPTY_GOVERNANCE_CONFIG, GOVERNANCE_EPOCH);
 
 /** Canonical population figures (memory of record). Used for seed sizing and displays. */
 export const CARRIER_POPULATION = 1136;

@@ -69,8 +69,8 @@ Green = Approved · Yellow = Needs Review · Orange = Restricted · Red = Blocke
 Single collapsible left nav on **every** screen (14 items): Dashboard · Carriers · Pre‑Screen · Drivers · Equipment · Insurance · FMCSA Monitoring · Claims · Compliance Tasks · Risk Review · Documents · Own‑Fleet Safety · Reports · Admin. **Admin/Settings reachable from every screen.** Fraud‑detection and capacity‑anomaly functions live **inside Risk Review** (the old separate Fraud Detection and Capacity Analytics screens are merged). Reconcile the exact set against the *Part A v2 global design header* if it differs.
 
 ## Open Questions — use config placeholders; do NOT invent values
-- **Q1** R/Y/G thresholds + how quality bands map to dispatch eligibility → in `packages/shared` config; assert in tests. (Matt)
-- **Q2** Blue Wire weights + two source docs. (Matt)
+- **Q1** R/Y/G thresholds + how quality bands map to dispatch eligibility → now an effective‑dated row in `governance_config` (migration `0006`), key `dispatch_thresholds`; **ships empty** → bands provisional until Matt inserts a value (data, not code). Derived via `@forrest/shared` `dispatchBandsProvisional(ts)`. (Matt · ADR‑0003)
+- **Q2** Blue Wire weights + two source docs → `governance_config` key `blue_wire_weights`; **ships empty/disabled** → `blueWireEnabled(ts)=false`, `blueWireWeights(ts)=null` until an active, enabled row exists. Never invent numbers. (Matt · ADR‑0003)
 - **Q5** TMS name/API/auth → connector is interface‑first; Phase 1 = watchlist import + queued write‑back. (Richard)
 - **Q7** Final platform mandate (Supabase‑first vs Azure/Entra). Build Supabase‑first; keep it portable.
 - **Q15** Dispatch‑block activation — ratified by the team before flipping the flag.
