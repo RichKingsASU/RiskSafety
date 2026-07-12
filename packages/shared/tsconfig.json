@@ -2,7 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    // constants.ts is loaded directly by Node (TS type-stripping, via seed:build ->
+    // @forrest/scoring -> @forrest/shared/constants -> ./governance-config.ts), which
+    // requires explicit .ts extensions on relative imports. emitDeclarationOnly keeps
+    // the composite project valid while allowing those extensions (mirrors packages/preview).
+    "allowImportingTsExtensions": true,
+    "emitDeclarationOnly": true
   },
   "include": ["src/**/*.ts"]
 }

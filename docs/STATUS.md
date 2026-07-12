@@ -55,6 +55,24 @@ directionality violations · seed↔engine anti-drift guard green.
   - Unblocks the *cutoff* half of Decision 1: Matt can pick the lines by looking
     at real volumes; sign-off is then a one-line change to `DISPATCH_DEFAULTS`.
 
+## Done (Phase 1 — governance config layer) ✅ NEW
+- **`supabase/migrations/0006_governance_config.sql`** — effective-dated,
+  append-only `governance_config` table (keys `dispatch_thresholds`, `blue_wire_weights`)
+  + `config_active_as_of(key, ts)`. The Q1 thresholds and Q2 Blue Wire weights now
+  live **in the DB as data, not code**: Matt's eventual values drop in as an INSERT.
+  **Ships EMPTY — zero value rows, nothing invented.**
+- **`@forrest/shared` `governance-config.ts`** — pure typed accessor deriving
+  `dispatchBandsProvisional(ts)` / `blueWireEnabled(ts)` / `blueWireWeights(ts)` from
+  the rows as of a decision timestamp (the contemporaneous due-diligence property).
+  The old constants (`DISPATCH_BANDS_PROVISIONAL`, `BLUE_WIRE_*`) are now thin wrappers
+  over empty config — **behavior byte-for-byte unchanged** (provisional / disabled / null).
+- **Core model weights are OUT of scope** — `computeScore` and `0.15/0.20/0.25/0.40`
+  are untouched; this governs dispatch **eligibility** cutoffs + Blue Wire signal only.
+- **Deferred:** wiring `computeScore` to read config thresholds, and the settings UI
+  (post-auth: admin-only writes + RLS). See `docs/adr/0003-governance-config-layer.md`.
+- **Verified:** vitest 100/100 · typecheck clean · clean-room migrations 0001–0006 +
+  seed + RLS assertions all pass · `governance_config` empty, `config_active_as_of` null.
+
 ## BLOCKERS — need owner action
 
 ### 1. Apply migrations to the live Supabase project (network/access)
@@ -86,3 +104,8 @@ intended target before go-live.
 - **Q5** TMS name/API/auth (connector interface-first).
 - **Q7** Final platform mandate (Supabase-first vs Azure/Entra).
 - **Q15** Dispatch-block activation (ratify before flipping the flag).
+- **Q16** Who may INSERT a `governance_config` row? Setting the Q1 dispatch thresholds
+  and Q2 Blue Wire weights is **Matt's authority**, not a generic staff write. The
+  current no-write RLS policy on `governance_config` (SELECT-only for staff) is correct
+  for now; the write path — restricted to the threshold/weight owner — must be scoped
+  when the admin settings UI is designed (post-auth, admin-only). See `docs/adr/0003-governance-config-layer.md`.
