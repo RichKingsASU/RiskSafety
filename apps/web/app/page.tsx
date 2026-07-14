@@ -30,6 +30,8 @@ import {
   type QualityBand,
   type DispatchBand
 } from '@forrest/shared/constants';
+import { countOnDnu, countBlockedRed } from './selectors';
+import { applyCoiDecision, type CoiDecision } from './coiDecision';
 
 export default function RSOSDashboard() {
   // App Core State
@@ -72,8 +74,13 @@ export default function RSOSDashboard() {
   const [dnuCarrierId, setDnuCarrierId] = useState<string | null>(null);
   const [dialogReason, setDialogReason] = useState<string>('');
 
+  // COI confirm-with-reason modal state (DEF-02) — reuses the shared dialog
+  // pattern / `dialogReason`, mirroring the DNU and Clear-Onboarding actions.
+  const [showCoiModal, setShowCoiModal] = useState<boolean>(false);
+  const [coiCarrierId, setCoiCarrierId] = useState<string | null>(null);
+  const [coiDecisionType, setCoiDecisionType] = useState<CoiDecision | null>(null);
+
   // Interactive COI review states
-  const [coiReason, setCoiReason] = useState<string>('');
   const [showDocPreview, setShowDocPreview] = useState<boolean>(false);
   const [previewDocName, setPreviewDocName] = useState<string>('');
 
@@ -413,102 +420,39 @@ export default function RSOSDashboard() {
     alert('Dossier approved. Harbor Point Drayage has been cleared for dispatch.');
   };
 
-  // Action: Approve parsed COI limits (B7 - human-gated)
-  const handleCoiApprove = (carrierId: string) => {
-    if (!coiReason.trim()) {
-      alert('Please provide a vetting rationale/reason for audit log.');
-      return;
-    }
-    
-    setCarriers(prev => prev.map(c => {
-      if (c.id === carrierId) {
-        const updatedGates = {
-          ...c.gates,
-          insurance_lapsed_or_below_min: false
-        };
-        const updatedResult = computeScore(c.inputs, updatedGates);
-        
-        return {
-          ...c,
-          gates: updatedGates,
-          scoreResult: updatedResult,
-          coiOcr: {
-            ...c.coiOcr,
-            review_status: 'approved' as const,
-            reviewed_by: persona === 'danica' ? 'Danica (Triage)' : 'Sam Ortiz (Safety Mgr)',
-            reviewed_at: new Date().toISOString(),
-            rejection_reason: undefined,
-          }
-        };
-      }
-      return c;
-    }));
-
-    const carrier = carriers.find(c => c.id === carrierId);
-
-    const newLog: AuditLog = {
-      id: `a-${Date.now()}`,
-      carrier_id: carrierId,
-      carrier_name: carrier?.legal_name || 'Unknown Carrier',
-      action_type: 'coi_ocr_review',
-      performed_by: persona === 'danica' ? 'Danica (Triage)' : 'Sam Ortiz (Safety Mgr)',
-      performed_at: new Date().toISOString(),
-      details: 'Certificate of Insurance (COI) approved manually. Insurance hard gate set to PASS.',
-      reason: coiReason
-    };
-
-    setAuditLogs(prev => [newLog, ...prev]);
-    setCoiReason('');
-    alert('COI manually approved. Vetting gate updated.');
+  // Action: open the COI confirm-with-reason modal (B7 - human-gated).
+  // Approve and Reject both route through the shared styled modal — no native
+  // confirm()/alert(), and the rationale is enforced inside the modal.
+  const openCoiModal = (carrierId: string, decision: CoiDecision) => {
+    setCoiCarrierId(carrierId);
+    setCoiDecisionType(decision);
+    setDialogReason('');
+    setShowCoiModal(true);
   };
 
-  // Action: Reject parsed COI limits (B7 - human-gated)
-  const handleCoiReject = (carrierId: string) => {
-    if (!coiReason.trim()) {
-      alert('Please specify the reason for COI rejection.');
-      return;
-    }
+  // Commit the COI decision from the modal. Guarded on a non-empty rationale;
+  // the pure decision core applies the gate change and builds the audit row.
+  const submitCoiDecision = () => {
+    if (!coiCarrierId || !coiDecisionType || !dialogReason.trim()) return;
 
-    setCarriers(prev => prev.map(c => {
-      if (c.id === carrierId) {
-        const updatedGates = {
-          ...c.gates,
-          insurance_lapsed_or_below_min: true
-        };
-        const updatedResult = computeScore(c.inputs, updatedGates);
+    const carrier = carriers.find(c => c.id === coiCarrierId);
+    if (!carrier) return;
 
-        return {
-          ...c,
-          gates: updatedGates,
-          scoreResult: updatedResult,
-          coiOcr: {
-            ...c.coiOcr,
-            review_status: 'rejected' as const,
-            reviewed_by: persona === 'danica' ? 'Danica (Triage)' : 'Sam Ortiz (Safety Mgr)',
-            reviewed_at: new Date().toISOString(),
-            rejection_reason: coiReason,
-          }
-        };
-      }
-      return c;
-    }));
+    const actor = persona === 'danica' ? 'Danica (Triage)' : 'Sam Ortiz (Safety Mgr)';
+    const { carrier: updated, auditLog } = applyCoiDecision(carrier, {
+      decision: coiDecisionType,
+      reason: dialogReason,
+      actor,
+      at: new Date().toISOString(),
+    });
 
-    const carrier = carriers.find(c => c.id === carrierId);
+    setCarriers(prev => prev.map(c => (c.id === updated.id ? updated : c)));
+    setAuditLogs(prev => [auditLog, ...prev]);
 
-    const newLog: AuditLog = {
-      id: `a-${Date.now()}`,
-      carrier_id: carrierId,
-      carrier_name: carrier?.legal_name || 'Unknown Carrier',
-      action_type: 'coi_ocr_review',
-      performed_by: persona === 'danica' ? 'Danica (Triage)' : 'Sam Ortiz (Safety Mgr)',
-      performed_at: new Date().toISOString(),
-      details: 'Certificate of Insurance (COI) rejected manually. Insurance hard gate set to FAIL.',
-      reason: coiReason
-    };
-
-    setAuditLogs(prev => [newLog, ...prev]);
-    setCoiReason('');
-    alert('COI rejected. Carrier has been flagged and blocked from dispatch.');
+    setShowCoiModal(false);
+    setCoiCarrierId(null);
+    setCoiDecisionType(null);
+    setDialogReason('');
   };
 
   // Action: Trigger mock document preview modal
@@ -669,9 +613,9 @@ export default function RSOSDashboard() {
                   <div className="stat-trend">Forrest Transport Units</div>
                 </div>
                 <div className="dashboard-stat-card">
-                  <div className="stat-label">Blocked (DNU List)</div>
-                  <div className="stat-value">{carriers.filter(c => c.gates.on_dnu).length}</div>
-                  <div className="stat-trend">Enforced Hard Gates</div>
+                  <div className="stat-label">On DNU List</div>
+                  <div className="stat-value" title="Carriers explicitly flagged Do-Not-Use (the internal blocked list).">{countOnDnu(carriers)}</div>
+                  <div className="stat-trend">Explicitly flagged Do-Not-Use</div>
                 </div>
                 <div className="dashboard-stat-card">
                   <div className="stat-label">Pending Triage</div>
@@ -790,9 +734,9 @@ export default function RSOSDashboard() {
                   <div className="card-subtext">Provisional cutoffs active</div>
                 </div>
                 <div className="card">
-                  <div className="card-title">DNU list / Blocked</div>
-                  <div className="card-value">{dispatchStats.red}</div>
-                  <div className="card-subtext">Forced Red eligibility</div>
+                  <div className="card-title" title="Carriers forced to RED dispatch eligibility by any hard gate: authority, safety rating, insurance, DNU, or confirmed fraud.">Red / Blocked (all gates)</div>
+                  <div className="card-value">{countBlockedRed(carriers)}</div>
+                  <div className="card-subtext">Forced Red by any hard gate</div>
                 </div>
               </div>
 
@@ -1518,32 +1462,27 @@ export default function RSOSDashboard() {
                         </div>
                       </div>
 
-                      {/* Human gate action panel (B7 & AD3) */}
+                      {/* Human gate action panel (B7 & AD3). Both actions open the
+                          shared confirm-with-reason modal, which enforces the audit
+                          rationale before committing — matching the DNU / Clear-
+                          Onboarding flow. No native browser dialogs. */}
                       <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
-                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
-                          Reviewer Audit Rationale (Required)
-                        </label>
-                        <input 
-                          type="text" 
-                          placeholder="Provide audit notes for COI review decision..." 
-                          className="search-input"
-                          style={{ width: '100%', marginBottom: '1rem' }}
-                          value={coiReason}
-                          onChange={(e) => setCoiReason(e.target.value)}
-                        />
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                          A reviewer rationale is required and captured in the confirmation step for the immutable audit log.
+                        </p>
 
                         <div style={{ display: 'flex', gap: '0.75rem' }}>
-                          <button 
+                          <button
                             className="action-bar-btn"
                             style={{ flex: 1, backgroundColor: 'var(--border-focus)' }}
-                            onClick={() => handleCoiApprove(selectedCarrier.id)}
+                            onClick={() => openCoiModal(selectedCarrier.id, 'approve')}
                           >
                             ✔️ Approve COI Limits (Clear Gate)
                           </button>
-                          <button 
+                          <button
                             className="action-bar-btn"
                             style={{ flex: 1, backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#f87171' }}
-                            onClick={() => handleCoiReject(selectedCarrier.id)}
+                            onClick={() => openCoiModal(selectedCarrier.id, 'reject')}
                           >
                             ❌ Reject / Flag Below Min (Trigger Red Gate)
                           </button>
@@ -2425,6 +2364,54 @@ export default function RSOSDashboard() {
                 onClick={submitDnuBlock}
               >
                 Confirm DNU Placement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: Confirm COI Decision (DEF-02) — shared confirm-with-reason
+          modal for Approve / Reject, mirroring the DNU and Clear-Onboarding
+          flows. Commit stays disabled until a rationale is entered; Cancel is a
+          no-op. Replaces the former native confirm()/alert() dialogs. */}
+      {showCoiModal && coiDecisionType && (
+        <div className="dialog-overlay">
+          <div className="dialog-box">
+            <h3
+              className="dialog-title"
+              style={coiDecisionType === 'reject' ? { color: '#f87171' } : undefined}
+            >
+              {coiDecisionType === 'approve'
+                ? 'Approve COI Limits — Confirm'
+                : 'Reject / Flag COI Below Minimum — Confirm'}
+            </h3>
+            <p className="dialog-body">
+              {coiDecisionType === 'approve'
+                ? 'Clearing the insurance hard gate for this carrier. Provide the vetting rationale — it is written to the immutable audit log.'
+                : 'This flags insurance below minimum and forces the carrier to RED dispatch eligibility. State the evidentiary reason for the immutable audit log.'}
+            </p>
+
+            <textarea
+              className="dialog-textarea"
+              placeholder="Enter the reviewer rationale for this COI decision..."
+              value={dialogReason}
+              onChange={(e) => setDialogReason(e.target.value)}
+            />
+
+            <div className="dialog-actions" style={{ marginTop: '1.5rem' }}>
+              <button
+                className="action-bar-btn secondary"
+                onClick={() => { setShowCoiModal(false); setCoiCarrierId(null); setCoiDecisionType(null); setDialogReason(''); }}
+              >
+                Cancel
+              </button>
+              <button
+                className="action-bar-btn"
+                style={coiDecisionType === 'reject' ? { backgroundColor: '#ef4444' } : undefined}
+                disabled={!dialogReason.trim()}
+                onClick={submitCoiDecision}
+              >
+                {coiDecisionType === 'approve' ? 'Confirm COI Approval' : 'Confirm COI Rejection'}
               </button>
             </div>
           </div>
